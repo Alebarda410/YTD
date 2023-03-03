@@ -7,7 +7,8 @@ namespace YTD
     {
         private string savePath;
         private Process proc;
-        private readonly Regex regex = new(@"(\d+)\%");
+        private readonly Regex percentRegex = new(@"(\d+)\%");
+        private readonly Regex speadRegex = new(@":\d+[\.\d][\.\d]*[A-Z]");
         private bool isFirstComplite = false;
 
         public Form1()
@@ -54,12 +55,13 @@ namespace YTD
 
             var paramList = new List<string>()
             {
-                @$"-f 'bv[height<={QualityComboBox.Text}][ext=mp4]+ba[ext=m4a]/bv[height<={QualityComboBox.Text}]+ba",
+                $"-f bv[height<={QualityComboBox.Text}][ext=mp4]+ba[ext=m4a]/bv[height<={QualityComboBox.Text}]+ba",
                 $"--external-downloader {aria2cPath}",
+                @"--external-downloader-args ""--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16""",
                 "--merge-output-format mp4",
-                urlLink,
                 "-o %(title)s",
-                $"-P {savePath}"
+                $"-P {savePath}",
+                urlLink
             };
             var param = string.Join(' ', paramList);
 
@@ -76,7 +78,7 @@ namespace YTD
             proc.Exited += ExitHandler;
 
             proc.Start();
-            AddData("Программа запущена, ожидайте");
+            AddData("Скачивание запущено, ожидайте");
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
             await proc.WaitForExitAsync();
@@ -92,13 +94,23 @@ namespace YTD
         {
             if (string.IsNullOrEmpty(e.Data) || e.Data.StartsWith(' ') || e.Data.StartsWith("[info]")
                 || e.Data.StartsWith("[youtube]") || e.Data.StartsWith("Deleting"))
-            { 
-                return; 
+            {
+                return;
             }
 
-            if (regex.IsMatch(e.Data) && !e.Data.Contains("100%"))
+            if (percentRegex.IsMatch(e.Data) && !e.Data.Contains("100%"))
             {
-                BeginInvoke(() => ProgressBar.Value = int.Parse(regex.Match(e.Data).Groups[1].Value));
+                BeginInvoke(() => ProgressBar.Value = int.Parse(percentRegex.Match(e.Data).Groups[1].Value));
+                BeginInvoke(() =>
+                {
+                    if (!LogRichTextBox.Lines[^2].StartsWith("Начата"))
+                    {
+                        LogRichTextBox.Undo();
+                        LogRichTextBox.ClearUndo();
+                    }
+
+                    LogRichTextBox.AppendText($"Скорость загрузки{speadRegex.Match(e.Data).Value.Replace(":", ": ")}б/сек\n");
+                });
             }
             else if (e.Data.StartsWith("[#")) return;
             else if (e.Data.StartsWith("[download] Destination"))
@@ -112,10 +124,23 @@ namespace YTD
                 BeginInvoke(() => ProgressBar.Value = 100);
                 if (!isFirstComplite)
                 {
+                    BeginInvoke(() =>
+                    {
+                        LogRichTextBox.Undo();
+                        LogRichTextBox.ClearUndo();
+                    });
                     AddData("Видео скачано");
                     isFirstComplite = true;
                 }
-                else AddData("Аудио скачано");
+                else
+                {
+                    BeginInvoke(() =>
+                    {
+                        LogRichTextBox.Undo();
+                        LogRichTextBox.ClearUndo();
+                    });
+                    AddData("Аудио скачано");
+                }
             }
 
             else if (e.Data.StartsWith("[Merger]"))

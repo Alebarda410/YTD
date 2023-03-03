@@ -55,7 +55,6 @@
             this.UrlLinkTextBox.Name = "UrlLinkTextBox";
             this.UrlLinkTextBox.Size = new System.Drawing.Size(535, 33);
             this.UrlLinkTextBox.TabIndex = 1;
-            this.UrlLinkTextBox.Text = "https://youtu.be/pbyt-jBti4Y";
             // 
             // LogRichTextBox
             // 
