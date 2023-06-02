@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace YTD
 {
@@ -7,10 +6,7 @@ namespace YTD
     {
         private string savePath;
         private Process proc;
-        private readonly Regex percentRegex = new(@"(\d+)\%");
-        private readonly Regex speadRegex = new(@":\d+[\.\d][\.\d]*[A-Z]");
         private bool isFirstComplite = false;
-
         public Form1()
         {
             InitializeComponent();
@@ -27,7 +23,6 @@ namespace YTD
         {
             isFirstComplite = false;
             LogRichTextBox.Clear();
-            ProgressBar.Value = 0;
 
             // получаем и проверяем путь к утилите для скачивания
             var ytdlpPath = Path.Combine(Directory.GetCurrentDirectory(), "yt-dlp.exe");
@@ -84,12 +79,13 @@ namespace YTD
             await proc.WaitForExitAsync();
             proc.Close();
         }
+
         private void ExitHandler(object sender, EventArgs e)
         {
             isFirstComplite = false;
             AddData("\nВсе готово!");
-            BeginInvoke(() => ProgressBar.Value = 0);
         }
+
         private void DataHandler(object sender, DataReceivedEventArgs e)
         {
             if (string.IsNullOrEmpty(e.Data) || e.Data.StartsWith(' ') || e.Data.StartsWith("[info]")
@@ -98,9 +94,8 @@ namespace YTD
                 return;
             }
 
-            if (percentRegex.IsMatch(e.Data) && !e.Data.Contains("100%"))
+            if (e.Data.StartsWith("[#"))
             {
-                BeginInvoke(() => ProgressBar.Value = int.Parse(percentRegex.Match(e.Data).Groups[1].Value));
                 BeginInvoke(() =>
                 {
                     if (!LogRichTextBox.Lines[^2].StartsWith("Начата"))
@@ -109,19 +104,16 @@ namespace YTD
                         LogRichTextBox.ClearUndo();
                     }
 
-                    LogRichTextBox.AppendText($"Скорость загрузки{speadRegex.Match(e.Data).Value.Replace(":", ": ")}б/сек\n");
+                    LogRichTextBox.AppendText($"{e.Data}\n");
                 });
             }
-            else if (e.Data.StartsWith("[#")) return;
             else if (e.Data.StartsWith("[download] Destination"))
             {
-                BeginInvoke(() => ProgressBar.Value = 0);
                 if (!isFirstComplite) AddData("Начата загрузка видео");
                 else AddData("Начата загрузка аудио");
             }
             else if (e.Data.StartsWith("[download] 100%"))
             {
-                BeginInvoke(() => ProgressBar.Value = 100);
                 if (!isFirstComplite)
                 {
                     BeginInvoke(() =>
